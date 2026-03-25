@@ -367,7 +367,6 @@ type TocItem = {
 function parseTocItems(body: string): TocItem[] {
   const lines = body.split(/\r?\n/);
   const flatItems: TocItem[] = [];
-  const levelStack: number[] = [];
 
   for (const line of lines) {
     const match = /^(#{1,4})\s+(.+?)\s*$/.exec(line);
@@ -376,25 +375,20 @@ function parseTocItems(body: string): TocItem[] {
     }
 
     const level = match[1].length;
-    while (levelStack.length > 0 && level <= levelStack[levelStack.length - 1]) {
-      levelStack.pop();
-    }
 
     flatItems.push({
       level,
       title: match[2].trim(),
-      depth: levelStack.length,
+      depth: level,
       children: []
     });
-
-    levelStack.push(level);
   }
 
   const roots: TocItem[] = [];
   const stack: TocItem[] = [];
 
   for (const item of flatItems) {
-    while (stack.length > item.depth) {
+    while (stack.length > 0 && item.level <= stack[stack.length - 1].level) {
       stack.pop();
     }
 
