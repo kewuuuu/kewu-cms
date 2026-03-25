@@ -394,7 +394,7 @@ function parseTocItems(body: string): TocItem[] {
     const current = items[index];
     for (let nextIndex = index + 1; nextIndex < items.length; nextIndex += 1) {
       const next = items[nextIndex];
-      if (next.level <= current.level) {
+      if (next.depth <= current.depth) {
         break;
       }
       current.hasChildren = true;
@@ -796,10 +796,10 @@ function bindTreePostOpeners(): void {
   }
 }
 
-function getTocItemLevel(itemEl: Element): number {
-  const raw = itemEl.getAttribute("data-level");
-  const level = Number.parseInt(raw || "0", 10);
-  return Number.isFinite(level) ? level : 0;
+function getTocItemDepth(itemEl: Element): number {
+  const raw = itemEl.getAttribute("data-depth");
+  const depth = Number.parseInt(raw || "0", 10);
+  return Number.isFinite(depth) ? depth : 0;
 }
 
 function refreshTocVisibility(tocListEl: HTMLElement): void {
@@ -807,9 +807,9 @@ function refreshTocVisibility(tocListEl: HTMLElement): void {
   const collapsedStack: number[] = [];
 
   for (const itemEl of items) {
-    const level = getTocItemLevel(itemEl);
+    const depth = getTocItemDepth(itemEl);
 
-    while (collapsedStack.length > 0 && level <= collapsedStack[collapsedStack.length - 1]) {
+    while (collapsedStack.length > 0 && depth <= collapsedStack[collapsedStack.length - 1]) {
       collapsedStack.pop();
     }
 
@@ -817,7 +817,7 @@ function refreshTocVisibility(tocListEl: HTMLElement): void {
     itemEl.classList.toggle("editor-toc-item-hidden", hidden);
 
     if (!hidden && itemEl.getAttribute("data-collapsed") === "1") {
-      collapsedStack.push(level);
+      collapsedStack.push(depth);
     }
   }
 }

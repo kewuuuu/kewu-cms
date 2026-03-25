@@ -260,16 +260,16 @@
   display: none;
 }
 
-.editor-toc-level-2 {
-  padding-left: 0;
-}
-
-.editor-toc-level-3 {
+.editor-toc-depth-1 {
   padding-left: 14px;
 }
 
-.editor-toc-level-4 {
+.editor-toc-depth-2 {
   padding-left: 28px;
+}
+
+.editor-toc-depth-3 {
+  padding-left: 42px;
 }
 
 .editor-toc-link {
