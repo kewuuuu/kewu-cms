@@ -250,14 +250,18 @@
 }
 
 .editor-toc-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
   padding: 6px 0;
 }
 
-.editor-toc-item-hidden {
-  display: none;
+.editor-toc-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.editor-toc-item > .editor-toc-list {
+  margin-top: 6px;
+  margin-left: 14px;
 }
 
 .editor-toc-depth-1 {
@@ -308,6 +312,10 @@
 
 .editor-toc-toggle-btn[aria-expanded="false"]::before {
   transform: rotate(-45deg);
+}
+
+.editor-toc-item.is-collapsed > .editor-toc-list {
+  display: none;
 }
 
 .editor-toc-item:not(.has-children) .editor-toc-toggle-btn {

@@ -361,12 +361,12 @@ type TocItem = {
   level: number;
   title: string;
   depth: number;
-  hasChildren: boolean;
+  children: TocItem[];
 };
 
 function parseTocItems(body: string): TocItem[] {
   const lines = body.split(/\r?\n/);
-  const items: TocItem[] = [];
+  const flatItems: TocItem[] = [];
   const levelStack: number[] = [];
 
   for (const line of lines) {
@@ -380,29 +380,34 @@ function parseTocItems(body: string): TocItem[] {
       levelStack.pop();
     }
 
-    items.push({
+    flatItems.push({
       level,
       title: match[2].trim(),
       depth: levelStack.length,
-      hasChildren: false
+      children: []
     });
 
     levelStack.push(level);
   }
 
-  for (let index = 0; index < items.length; index += 1) {
-    const current = items[index];
-    for (let nextIndex = index + 1; nextIndex < items.length; nextIndex += 1) {
-      const next = items[nextIndex];
-      if (next.depth <= current.depth) {
-        break;
-      }
-      current.hasChildren = true;
-      break;
+  const roots: TocItem[] = [];
+  const stack: TocItem[] = [];
+
+  for (const item of flatItems) {
+    while (stack.length > item.depth) {
+      stack.pop();
     }
+
+    if (stack.length === 0) {
+      roots.push(item);
+    } else {
+      stack[stack.length - 1].children.push(item);
+    }
+
+    stack.push(item);
   }
 
-  return items;
+  return roots;
 }
 
 function getTocMarkup(): string {
@@ -411,22 +416,30 @@ function getTocMarkup(): string {
     return `<p class="empty-state">正文中暂无目录标题。</p>`;
   }
 
-  return `
-    <ol class="editor-toc-list">
-      ${items
-        .map(function (item) {
-          return `
-            <li class="editor-toc-item editor-toc-level-${item.level} editor-toc-depth-${item.depth}${item.hasChildren ? " has-children" : ""}" data-level="${item.level}" data-depth="${item.depth}" data-collapsed="0">
-              ${item.hasChildren
-                ? '<button class="editor-toc-toggle-btn" type="button" aria-expanded="true" aria-label="收起子标题"></button>'
-                : '<span class="editor-toc-toggle-btn" aria-hidden="true"></span>'}
-              <span class="editor-toc-link">${escapeHtml(item.title)}</span>
-            </li>
-          `;
-        })
-        .join("")}
-    </ol>
-  `;
+  function renderItems(nodes: TocItem[]): string {
+    return `
+      <ol class="editor-toc-list">
+        ${nodes
+          .map(function (item) {
+            const hasChildren = item.children.length > 0;
+            return `
+              <li class="editor-toc-item editor-toc-level-${item.level} editor-toc-depth-${item.depth}${hasChildren ? " has-children" : ""}">
+                <div class="editor-toc-item-row">
+                  ${hasChildren
+                    ? '<button class="editor-toc-toggle-btn" type="button" aria-expanded="true" aria-label="收起子标题"></button>'
+                    : '<span class="editor-toc-toggle-btn" aria-hidden="true"></span>'}
+                  <span class="editor-toc-link">${escapeHtml(item.title)}</span>
+                </div>
+                ${hasChildren ? renderItems(item.children) : ""}
+              </li>
+            `;
+          })
+          .join("")}
+      </ol>
+    `;
+  }
+
+  return renderItems(items);
 }
 
 function getEditorGridTemplate(): string {
@@ -796,39 +809,10 @@ function bindTreePostOpeners(): void {
   }
 }
 
-function getTocItemDepth(itemEl: Element): number {
-  const raw = itemEl.getAttribute("data-depth");
-  const depth = Number.parseInt(raw || "0", 10);
-  return Number.isFinite(depth) ? depth : 0;
-}
-
-function refreshTocVisibility(tocListEl: HTMLElement): void {
-  const items = Array.from(tocListEl.querySelectorAll<HTMLElement>(".editor-toc-item"));
-  const collapsedStack: number[] = [];
-
-  for (const itemEl of items) {
-    const depth = getTocItemDepth(itemEl);
-
-    while (collapsedStack.length > 0 && depth <= collapsedStack[collapsedStack.length - 1]) {
-      collapsedStack.pop();
-    }
-
-    const hidden = collapsedStack.length > 0;
-    itemEl.classList.toggle("editor-toc-item-hidden", hidden);
-
-    if (!hidden && itemEl.getAttribute("data-collapsed") === "1") {
-      collapsedStack.push(depth);
-    }
-  }
-}
-
 function bindTocToggles(): void {
-  const tocList = app.querySelector<HTMLElement>(".editor-toc-list");
-  if (!tocList) {
-    return;
-  }
-
-  const buttons = tocList.querySelectorAll<HTMLButtonElement>(".editor-toc-toggle-btn");
+  const buttons = app.querySelectorAll<HTMLButtonElement>(
+    ".editor-toc-item.has-children > .editor-toc-item-row > .editor-toc-toggle-btn"
+  );
   for (const button of buttons) {
     if (button.dataset.bound === "1") {
       continue;
@@ -840,19 +824,15 @@ function bindTocToggles(): void {
       event.stopPropagation();
 
       const itemEl = button.closest<HTMLElement>(".editor-toc-item");
-      if (!itemEl || !itemEl.classList.contains("has-children")) {
+      if (!itemEl) {
         return;
       }
 
-      const nextCollapsed = itemEl.getAttribute("data-collapsed") !== "1";
-      itemEl.setAttribute("data-collapsed", nextCollapsed ? "1" : "0");
-      button.setAttribute("aria-expanded", String(!nextCollapsed));
-      button.setAttribute("aria-label", nextCollapsed ? "展开子标题" : "收起子标题");
-      refreshTocVisibility(tocList);
+      const collapsed = itemEl.classList.toggle("is-collapsed");
+      button.setAttribute("aria-expanded", String(!collapsed));
+      button.setAttribute("aria-label", collapsed ? "展开子标题" : "收起子标题");
     });
   }
-
-  refreshTocVisibility(tocList);
 }
 
 function bindEditorFields(): void {
